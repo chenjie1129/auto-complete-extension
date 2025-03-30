@@ -1,36 +1,31 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const apiKeyInput = document.getElementById('apiKey');
-  const toggleKey = document.getElementById('toggleKey');
-  const saveButton = document.getElementById('save');
-  const statusDiv = document.getElementById('status');
-
-  // 加载保存的API Key
-  chrome.storage.sync.get(['deepseekApiKey'], (result) => {
-    apiKeyInput.value = result.deepseekApiKey || '';
-  });
-
-  // 切换显示/隐藏API Key
-  toggleKey.addEventListener('change', () => {
-    apiKeyInput.type = toggleKey.checked ? 'text' : 'password';
-  });
-
-  // 保存按钮点击事件
-  saveButton.addEventListener('click', () => {
-    const apiKey = apiKeyInput.value.trim();
-    if (!apiKey) {
-      statusDiv.textContent = '请输入有效的API Key';
-      statusDiv.style.color = '#ff0000';
-      return;
+// 确保在保存API Key时也保存飞书适配设置
+document.getElementById('save').addEventListener('click', () => {
+  const apiKey = document.getElementById('apiKey').value;
+  const adaptFeishu = document.getElementById('adaptFeishu').checked;
+  
+  chrome.storage.sync.set({
+    deepseekApiKey: apiKey,
+    extensionConfig: {
+      adaptFeishu: adaptFeishu
     }
-
-    chrome.storage.sync.set({ deepseekApiKey: apiKey }, () => {
-      statusDiv.textContent = 'API Key已保存成功';
-      statusDiv.style.color = '#4CAF50';
-      
-      // 3秒后自动消失
-      setTimeout(() => {
-        statusDiv.textContent = '';
-      }, 3000);
-    });
+  }, () => {
+    // 显示保存成功状态
+    const status = document.getElementById('status');
+    status.textContent = '设置已保存！';
+    status.className = 'success';
+    setTimeout(() => status.textContent = '', 2000);
   });
+});
+
+// 加载保存的API Key
+chrome.storage.sync.get(['deepseekApiKey'], (result) => {
+  if (result.deepseekApiKey) {
+    document.getElementById('apiKey').value = result.deepseekApiKey;
+  }
+});
+
+// 显示/隐藏API Key
+document.getElementById('toggleKey').addEventListener('change', (e) => {
+  const apiKeyInput = document.getElementById('apiKey');
+  apiKeyInput.type = e.target.checked ? 'text' : 'password';
 });
