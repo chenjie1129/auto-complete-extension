@@ -17,7 +17,7 @@ if (!chrome?.runtime?.sendMessage) {
   
   const DEEPSEEK_CONFIG = {
     API_ENDPOINT: 'https://api.deepseek.com/v1/chat/completions',
-    API_KEY: 'sk-6ab99f1c54b943ce8f30f038c9c426fc', // 请替换为实际API密钥
+    API_KEY: '', // 请替换为实际API密钥
     MODEL: 'deepseek-chat',
     TEMPERATURE: 0.7
   };
