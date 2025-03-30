@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "输入监听助手",
-  "version": "0.0.2",  
+  "version": "0.0.3",  
   "description": "监听页面输入框的鼠标状态",
   "permissions": [
     "activeTab",
@@ -10,7 +10,7 @@
     "tabs"      
   ],
   "options_ui": {
-    "page": "options.html",
+    "page": "options.html",  
     "open_in_tab": false
   },
   "host_permissions": [  

@@ -6,6 +6,15 @@ if (!chrome?.runtime?.sendMessage) {
 } else {
   // 原有的事件监听代码放在这里
   // 在文件顶部添加DeepSeek配置
+  // 在文件顶部添加（放在DEEPSEEK_CONFIG下面）
+  const LOCAL_RULES = {
+    NAME_TO_ID: {
+      'chenjie': '1129'
+    },
+    COMMON_PHRASES: {},
+    COMMANDS: {}
+  };
+  
   const DEEPSEEK_CONFIG = {
     API_ENDPOINT: 'https://api.deepseek.com/v1/chat/completions',
     API_KEY: 'sk-6ab99f1c54b943ce8f30f038c9c426fc', // 请替换为实际API密钥
@@ -36,7 +45,8 @@ if (!chrome?.runtime?.sendMessage) {
         
         console.log('[DeepSeek] 清理后的输入内容:', message.text);
         chrome.storage.sync.get(['deepseekApiKey'], (result) => {
-          if (!result.deepseekApiKey) {
+          const apiKey = result.deepseekApiKey || DEEPSEEK_CONFIG.API_KEY;
+          if (!apiKey) {
             console.error('未配置DeepSeek API Key');
             resolve(null);
             return;
@@ -49,7 +59,7 @@ if (!chrome?.runtime?.sendMessage) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${result.deepseekApiKey}`
+              'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
               model: DEEPSEEK_CONFIG.MODEL,
@@ -74,40 +84,48 @@ if (!chrome?.runtime?.sendMessage) {
           });
         });
       } else if (message.type === 'GET_AUTOCOMPLETE') {
-        // 检查所有本地规则
-        const text = message.text.toLowerCase();
-        
-        // 1. 检查姓名映射
-        const nameMatch = Object.entries(LOCAL_RULES.NAME_TO_ID).find(([key]) => 
-        text.includes(key.toLowerCase())
-        );
-        if (nameMatch) {
-        return resolve({suggestion: {value: nameMatch[1]}});
-        }
-        
-        // 2. 检查常用短语
-        const phraseMatch = Object.entries(LOCAL_RULES.COMMON_PHRASES).find(([key]) => 
-        text.endsWith(key.toLowerCase())
-        );
-        if (phraseMatch) {
-        return resolve({suggestion: {value: phraseMatch[1]}});
-        }
-        
-        // 3. 检查快捷命令
-        const commandMatch = Object.entries(LOCAL_RULES.COMMANDS).find(([key]) => 
-        text.startsWith(key.toLowerCase())
-        );
-        if (commandMatch) {
-        return resolve({suggestion: {value: commandMatch[1]}});
-        }
-        
-        // 没有匹配的本地规则
-        sendChromeMessage();
-      } else {
-        sendChromeMessage();
+      // 检查所有本地规则
+      const text = message.text.toLowerCase().trim(); // 添加trim()确保去除空格
+      
+      // 1. 检查精确匹配
+      if (LOCAL_RULES.NAME_TO_ID[text]) {
+        resolve({suggestion: {value: LOCAL_RULES.NAME_TO_ID[text]}});
+        return;
       }
-    });
-  }
+      
+      // 2. 检查包含匹配（原逻辑）
+      const nameMatch = Object.entries(LOCAL_RULES.NAME_TO_ID).find(([key]) => 
+      text.includes(key.toLowerCase())
+      );
+      if (nameMatch) {
+      resolve({suggestion: {value: nameMatch[1]}});
+      return;
+      }
+      
+      // 2. 检查常用短语
+      const phraseMatch = Object.entries(LOCAL_RULES.COMMON_PHRASES).find(([key]) => 
+      text.endsWith(key.toLowerCase())
+      );
+      if (phraseMatch) {
+      resolve({suggestion: {value: phraseMatch[1]}});
+      return;
+      }
+      
+      // 3. 检查快捷命令
+      const commandMatch = Object.entries(LOCAL_RULES.COMMANDS).find(([key]) => 
+      text.startsWith(key.toLowerCase())
+      );
+      if (commandMatch) {
+      resolve({suggestion: {value: commandMatch[1]}});
+      return;
+      }
+      
+      // 没有匹配的本地规则
+      sendChromeMessage();
+    } else {
+      sendChromeMessage();
+    }
+  }); // 确保Promise闭合
 }
 
 function createMouseEventMessage(event, target) {
@@ -189,10 +207,11 @@ function setupInputListeners() {
       }
       
       // 检查是否有实际输入变化且包含中文且不是标点符号
+      // 修改检测逻辑，只允许中文内容触发补全
       if (!currentValue || 
           typeof currentValue !== 'string' ||
           currentValue === inputElement.__lastValue || 
-          !containsChinese(currentValue) ||
+          !containsChinese(currentValue) ||  // 只允许包含中文的内容
           /[，。、；：？！""''《》【】\s]/.test(currentValue.slice(-1))) {
         return;
       }
@@ -217,7 +236,7 @@ function setupInputListeners() {
           showCompletion(e.target, currentValue, deepseekResponse.suggestion.value);
         }
       }
-    }, 1000);
+    }, 2000); // 修改为等待2秒才开始补全检测
     
     // Tab键处理逻辑 - 已正确移动到这里
     input.addEventListener('keydown', (e) => {
@@ -275,6 +294,7 @@ function debounce(func, delay) {
 }
 
 // 新增中文检测函数
+// 中文检测函数
 function containsChinese(text) {
   return /[\u4e00-\u9fa5]/.test(text);
 }
@@ -548,35 +568,5 @@ const FeishuAdapter = {
     inputElement.dispatchEvent(event);
     return true;
   }
-};
-/*
-// 在输入框事件监听器中添加Tab键处理
-input.addEventListener('keydown', (e) => {
-  if (e.key === 'Tab' && hasPendingSuggestion) {
-    e.preventDefault();
-    // 确认当前补全建议
-    confirmCompletion(input);
-    // 手动触发焦点转移
-    setTimeout(() => {
-      const focusable = [...document.querySelectorAll('input, button, a, [tabindex]')];
-      const currentIndex = focusable.indexOf(input);
-      const nextIndex = e.shiftKey ? currentIndex - 1 : currentIndex + 1;
-      if (focusable[nextIndex]) {
-        focusable[nextIndex].focus();
-      }
-    }, 50);
-  }
-});
-
-// 添加确认补全的函数
-function confirmCompletion(inputElement) {
-  if (inputElement.__currentSuggestion) {
-    // 标记补全已确认
-    hasPendingSuggestion = false;
-    // 清除当前建议引用
-    delete inputElement.__currentSuggestion;
-    // 触发输入事件更新状态
-    const event = new Event('input', { bubbles: true });
-    inputElement.dispatchEvent(event);
-  }
-}*/
+}; // 确保对象定义以分号结尾
+}
